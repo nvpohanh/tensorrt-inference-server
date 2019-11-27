@@ -41,7 +41,7 @@ enum class MemoryFormat {
   // Four wide channel vectorized row major format.
   CHW4,
   // Eight channel format where C is padded to a multiple of 8.
-  HCW8,
+  HWC8,
   // Sixteen wide channel vectorized row major format.
   CHW16,
   // Thirty-two wide channel vectorized row major format.
@@ -53,6 +53,17 @@ enum class MemoryFormat {
 MemoryFormat ConvertTrtFmtToFmt(nvinfer1::TensorFormat trt_fmt);
 
 const std::string MemoryFormat_Name(MemoryFormat fmt);
+
+int GetVectorSize(MemoryFormat fmt);
+
+int64_t GetPaddedByteSize(
+    const int batch_size, const DataType& dtype, const DimsList& dims,
+    const MemoryFormat fmt);
+int64_t GetPaddedByteSize(
+    const DataType& dtype, const std::vector<int64_t>& dims,
+    const MemoryFormat fmt);
+int64_t GetPaddedByteSize(
+    const DataType& dtype, const DimsList& dims, const MemoryFormat fmt);
 
 DataType ConvertTrtTypeToDataType(nvinfer1::DataType trt_type);
 

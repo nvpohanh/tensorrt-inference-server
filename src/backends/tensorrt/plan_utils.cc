@@ -56,7 +56,7 @@ ConvertTrtFmtToFmt(nvinfer1::TensorFormat trt_fmt)
     case nvinfer1::TensorFormat::kCHW4:
       return MemoryFormat::CHW4;
     case nvinfer1::TensorFormat::kHWC8:
-      return MemoryFormat::HCW8;
+      return MemoryFormat::HWC8;
     case nvinfer1::TensorFormat::kCHW16:
       return MemoryFormat::CHW16;
     case nvinfer1::TensorFormat::kCHW32:
@@ -76,8 +76,8 @@ MemoryFormat_Name(MemoryFormat fmt)
       return "CHW2";
     case MemoryFormat::CHW4:
       return "CHW4";
-    case MemoryFormat::HCW8:
-      return "HCW8";
+    case MemoryFormat::HWC8:
+      return "HWC8";
     case MemoryFormat::CHW16:
       return "CHW16";
     case MemoryFormat::CHW32:
@@ -87,6 +87,70 @@ MemoryFormat_Name(MemoryFormat fmt)
   }
 
   return "INVALID";
+}
+
+int
+GetVectorSize(MemoryFormat fmt)
+{
+  switch (fmt) {
+    case MemoryFormat::LINEAR:
+      return 1;
+    case MemoryFormat::CHW2:
+      return 2;
+    case MemoryFormat::CHW4:
+      return 4;
+    case MemoryFormat::HWC8:
+      return 8;
+    case MemoryFormat::CHW16:
+      return 16;
+    case MemoryFormat::CHW32:
+      return 32;
+    case MemoryFormat::INVALID:
+      return -1;
+  }
+
+  return -1;
+}
+
+int64_t
+GetPaddedByteSize(
+    const int batch_size, const DataType& dtype, const DimsList& dims,
+    const MemoryFormat fmt)
+{
+  DimsList paddedDims = dims;
+  int vSize = GetVectorSize(fmt);
+  if (vSize > 1 && dims.size() >= 3) {
+    int64 channel = dims[dims.size() - 3];
+    dims[dims.size() - 3] = channel + vSize - ((channel + vSize) % vSize);
+  }
+  return GetByteSize(batch_size, dtype, paddedDims);
+}
+
+int64_t
+GetPaddedByteSize(
+    const DataType& dtype, const std::vector<int64_t>& dims,
+    const MemoryFormat fmt)
+{
+  std::vector<int64_t> paddedDims = dims;
+  int vSize = GetVectorSize(fmt);
+  if (vSize > 1 && dims.size() >= 3) {
+    int64 channel = dims[dims.size() - 3];
+    dims[dims.size() - 3] = channel + vSize - ((channel + vSize) % vSize);
+  }
+  return GetByteSize(dtype, paddedDims);
+}
+
+int64_t
+GetPaddedByteSize(
+    const DataType& dtype, const DimsList& dims, const MemoryFormat fmt)
+{
+  DimsList paddedDims = dims;
+  int vSize = GetVectorSize(fmt);
+  if (vSize > 1 && dims.size() >= 3) {
+    int64 channel = dims[dims.size() - 3];
+    dims[dims.size() - 3] = channel + vSize - ((channel + vSize) % vSize);
+  }
+  return GetByteSize(dtype, paddedDims);
 }
 
 std::pair<bool, nvinfer1::DataType>

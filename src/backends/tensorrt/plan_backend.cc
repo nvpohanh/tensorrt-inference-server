@@ -468,12 +468,11 @@ PlanBackend::Context::InitializeInputBinding(
   }
 
   MemoryFormat fmt = ConvertTrtFmtToFmt(engine_->getBindingFormat(index));
-  if (fmt != MemoryFormat::LINEAR) {
+  if (fmt == MemoryFormat::INVALID) {
     return Status(
-        RequestStatusCode::INVALID_ARG,
-        "unexpected tensor format " + MemoryFormat_Name(fmt) + " for input '" +
-            input_name +
-            "'. Only LINEAR memory format is supported at present.");
+        RequestStatusCode::INVALID_ARG, "unexpected tensor format " +
+                                            MemoryFormat_Name(fmt) +
+                                            " for input '" + input_name + "'.");
   }
 
   nvinfer1::Dims engine_dims = engine_->getBindingDimensions(index);
@@ -500,7 +499,7 @@ PlanBackend::Context::InitializeInputBinding(
   int64_t byte_size;
   std::vector<int64_t> maximum_dims;
   if (!is_dynamic_) {
-    byte_size = GetByteSize(max_batch_size_, dt, model_config_dims);
+    byte_size = GetPaddedByteSize(max_batch_size_, dt, model_config_dims, fmt);
   } else {
     nvinfer1::Dims max_profile_dims = engine_->getProfileDimensions(
         index, profile_index_, nvinfer1::OptProfileSelector::kMAX);
@@ -533,7 +532,7 @@ PlanBackend::Context::InitializeInputBinding(
     } else {
       max_dynamic_batch_size_ = 1;
     }
-    byte_size = GetByteSize(dt, maximum_dims);
+    byte_size = GetPaddedByteSize(dt, maximum_dims, fmt);
     // Update the maximum dimension with respect to the allocated buffer
     DimVecToDims(maximum_dims, &max_dims_[index - binding_offset_]);
   }
@@ -685,12 +684,11 @@ PlanBackend::Context::InitializeConfigOutputBindings(
     }
 
     MemoryFormat fmt = ConvertTrtFmtToFmt(engine_->getBindingFormat(index));
-    if (fmt != MemoryFormat::LINEAR) {
+    if (fmt == MemoryFormat::INVALID) {
       return Status(
           RequestStatusCode::INVALID_ARG,
           "unexpected tensor format " + MemoryFormat_Name(fmt) +
-              " for output '" + io.name() +
-              "'. Only LINEAR memory format is supported at present.");
+              " for output '" + io.name() + "'.");
     }
 
     const DimsList& model_config_dims =
@@ -703,7 +701,8 @@ PlanBackend::Context::InitializeConfigOutputBindings(
 
     int64_t byte_size;
     if (!is_dynamic_) {
-      byte_size = GetByteSize(max_batch_size_, dt, model_config_dims);
+      byte_size =
+          GetPaddedByteSize(max_batch_size_, dt, model_config_dims, fmt);
       if (byte_size == -1) {
         return Status(
             RequestStatusCode::INTERNAL,
@@ -714,7 +713,7 @@ PlanBackend::Context::InitializeConfigOutputBindings(
       const nvinfer1::Dims output_dim = context_->getBindingDimensions(index);
       std::vector<int64_t> dim_vec;
       DimsToDimVec(output_dim, &dim_vec);
-      byte_size = GetByteSize(dt, dim_vec);
+      byte_size = GetPaddedByteSize(dt, dim_vec, fmt);
     }
 
     // Allocate CUDA memory. We rely on buffers_ being non-nullptr to
@@ -861,8 +860,10 @@ PlanBackend::Context::Run(
 
       DataType dt = ConvertTrtTypeToDataType(
           engine_->getBindingDataType(binding_offset_ + bindex));
+      MemoryFormat fmt = ConvertTrtFmtToFmt(
+          engine_->getBindingFormat(binding_offset_ + bindex));
 
-      batch1_byte_size = GetByteSize(dt, shape);
+      batch1_byte_size = GetPaddedByteSize(dt, shape, fmt);
       if (max_batch_size_ != 0) {
         // The first element of the vector will be the batch size and should not
         // be included in the batch1_byte_size computation above.
