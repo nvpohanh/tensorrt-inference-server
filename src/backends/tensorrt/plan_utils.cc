@@ -117,13 +117,21 @@ GetPaddedByteSize(
     const int batch_size, const DataType& dtype, const DimsList& dims,
     const MemoryFormat fmt)
 {
-  DimsList paddedDims = dims;
   int vSize = GetVectorSize(fmt);
   if (vSize > 1 && dims.size() >= 3) {
-    int64 channel = dims[dims.size() - 3];
-    dims[dims.size() - 3] = channel + vSize - ((channel + vSize) % vSize);
+    DimsList paddedDims;
+    for (int i = 0; i < dims.size(); i++)
+    {
+      int64_t dim = dims[i];
+      if (i == dims.size() - 3)
+      {
+        dim = dim + vSize - ((dim + vSize) % vSize);
+      }
+      paddedDims.Add(dim);
+    }
+    return GetByteSize(batch_size, dtype, paddedDims);
   }
-  return GetByteSize(batch_size, dtype, paddedDims);
+  return GetByteSize(batch_size, dtype, dims);
 }
 
 int64_t
@@ -134,8 +142,8 @@ GetPaddedByteSize(
   std::vector<int64_t> paddedDims = dims;
   int vSize = GetVectorSize(fmt);
   if (vSize > 1 && dims.size() >= 3) {
-    int64 channel = dims[dims.size() - 3];
-    dims[dims.size() - 3] = channel + vSize - ((channel + vSize) % vSize);
+    int64_t channel = dims[dims.size() - 3];
+    paddedDims[dims.size() - 3] = channel + vSize - ((channel + vSize) % vSize);
   }
   return GetByteSize(dtype, paddedDims);
 }
@@ -144,13 +152,21 @@ int64_t
 GetPaddedByteSize(
     const DataType& dtype, const DimsList& dims, const MemoryFormat fmt)
 {
-  DimsList paddedDims = dims;
   int vSize = GetVectorSize(fmt);
   if (vSize > 1 && dims.size() >= 3) {
-    int64 channel = dims[dims.size() - 3];
-    dims[dims.size() - 3] = channel + vSize - ((channel + vSize) % vSize);
+    DimsList paddedDims;
+    for (int i = 0; i < dims.size(); i++)
+    {
+      int64_t dim = dims[i];
+      if (i == dims.size() - 3)
+      {
+        dim = dim + vSize - ((dim + vSize) % vSize);
+      }
+      paddedDims.Add(dim);
+    }
+    return GetByteSize(dtype, paddedDims);
   }
-  return GetByteSize(dtype, paddedDims);
+  return GetByteSize(dtype, dims);
 }
 
 std::pair<bool, nvinfer1::DataType>
